@@ -4,28 +4,23 @@
 #include <string>
 #include <filesystem>
 #include <algorithm>
-#include <cstring> // For memcpy
+#include <cstring>
+#include <iomanip> // For std::setw, std::hex, std::dec
 
 namespace fs = std::filesystem;
 
 // --- 1. Utility for Little Endian to Host Conversion ---
 
 /**
- * @brief Converts a 4-byte Little Endian value to the host system's endianness (usually used for Scan ID).
- * @param value The 32-bit value in Little Endian format.
- * @return The 32-bit value in host format.
+ * @brief Converts a 4-byte Little Endian value to the host system's endianness (usually for Scan ID).
  */
 inline uint32_t le_to_h_u32(uint32_t value) {
-    // Check if the host is Little Endian (no conversion needed) or Big Endian (conversion needed)
-    // This check is a common way to handle endianness cross-platform.
+    // Standard cross-platform check for Little Endian
     #if __BYTE_ORDER == __LITTLE_ENDIAN || defined(__LITTLE_ENDIAN__)
         return value;
     #else
-        // Manual byte swap for Big Endian systems (e.g., some PowerPC or older ARM)
-        return (value >> 24) |
-               ((value << 8) & 0x00FF0000) |
-               ((value >> 8) & 0x0000FF00) |
-               (value << 24);
+        // Byte swap for Big Endian systems
+        return (value >> 24) | ((value << 8) & 0x00FF0000) | ((value >> 8) & 0x0000FF00) | (value << 24);
     #endif
 }
 
@@ -41,13 +36,10 @@ inline uint16_t le_to_h_u16(uint16_t value) {
 }
 
 
-// --- 2. Data Structure Definitions (Packed for accurate byte alignment) ---
-
-// Use #pragma pack or equivalent to ensure no padding is added by the compiler.
+// --- 2. Data Structure Definitions (Packed) ---
 #pragma pack(push, 1)
 
 // Based on the documentation (Table 5: Data output: Header)
-// The offsets here are RELATIVE to the start of the 60-byte SICK Data Output Header (which starts after the 24-byte UDP Header).
 struct SICK_DataOutput_Header {
     uint8_t version[4];         // 4 bytes: Version (0-3)
     uint32_t device_sn;         // 4 bytes: Device serial number
@@ -55,12 +47,12 @@ struct SICK_DataOutput_Header {
     uint8_t channel_num;        // 1 byte: Channel number
     uint8_t reserved_1[3];      // 3 bytes: Reserved
     uint32_t sequence_num;      // 4 bytes: Sequence number
-    uint32_t scan_num;          // 4 bytes: Scan number (This is the "Scan Identification") 
+    uint32_t scan_num;          // 4 bytes: Scan number (Scan Identification)
     uint32_t timestamp_sec;     // 4 bytes: Time stamp (seconds)
     uint32_t timestamp_usec;    // 4 bytes: Time stamp (microseconds)
     uint32_t offset_device_status;      // 4 bytes: Offset to Device status block
     uint32_t offset_config;             // 4 bytes: Offset to Configuration block
-    uint32_t offset_measurement_data;   // 4 bytes: Offset to Measurement data block (Crucial for finding the data)
+    uint32_t offset_measurement_data;   // 4 bytes: Offset to Measurement data block
     uint32_t offset_field_interruption; // 4 bytes: Offset to Field interruption block
     uint32_t offset_application_data;   // 4 bytes: Offset to Application data block
     uint32_t offset_local_io;           // 4 bytes: Offset to Local I/O block
@@ -73,29 +65,25 @@ struct SICK_DataOutput_Header {
 
 void process_file_content(const std::vector<unsigned char>& data, const std::string& filename) {
     
-    // Minimum expected size: 24 (UDP Datagram Header) + 60 (SICK Header) = 84 bytes
-    constexpr size_t MIN_SIZE = 84;
-    constexpr size_t UDP_HEADER_SIZE = 24;
+    // The SICK Data Output Header is 60 bytes.
+    constexpr size_t SICK_HEADER_SIZE = 60;
 
-    if (data.size() < MIN_SIZE) {
-        std::cerr << "  [ERROR] File too small to contain a valid packet (" << data.size() << " bytes)." << std::endl;
+    if (data.size() < SICK_HEADER_SIZE) {
+        std::cerr << "  [ERROR] File too small to contain a SICK header (" << data.size() << " bytes, expected >= " << SICK_HEADER_SIZE << ")." << std::endl;
         return;
     }
 
-    // --- 3.1. Get Header Info (Scan ID and Measurement Data Offset) ---
+    // --- 3.1. Get Header Info (Assuming SICK Header starts at index 0) ---
     
-    // The SICK Data Output Header starts after the 24-byte UDP Datagram Header.
-    const unsigned char* header_ptr = data.data() + UDP_HEADER_SIZE;
+    // We assume the SICK Data Output Header starts at the very beginning of the file.
+    const unsigned char* header_ptr = data.data(); 
     
-    // Use memcpy to safely copy data into the packed structure
     SICK_DataOutput_Header header;
     std::memcpy(&header, header_ptr, sizeof(SICK_DataOutput_Header));
 
-    // Get the Scan ID (Scan Number) and convert from Little Endian
     uint32_t scan_id = le_to_h_u32(header.scan_num);
-    
-    // Get the offset to the Measurement Data block (offset is relative to the start of the SICK Header)
     uint32_t measurement_data_offset = le_to_h_u32(header.offset_measurement_data);
+    uint32_t total_payload_length = le_to_h_u32(header.total_length); // Total length of data following the header
 
     std::cout << "\n  [Metadata] Scan Identification (Scan Number): " << scan_id << std::endl;
 
@@ -104,22 +92,23 @@ void process_file_content(const std::vector<unsigned char>& data, const std::str
         return;
     }
 
-    // --- 3.2. Locate and Process Measurement Data Block ---
+    // --- 3.2. Check Bounds ---
     
-    // The Measurement Data block starts at: 
-    // UDP Header (24) + SICK Header (0) + Measurement Data Offset
-    size_t data_block_start_index = UDP_HEADER_SIZE + measurement_data_offset;
+    // The Measurement Data block starts at: SICK Header (60) + Measurement Data Offset
+    size_t data_block_start_index = SICK_HEADER_SIZE + measurement_data_offset;
 
-    if (data_block_start_index + 4 >= data.size()) {
-        std::cerr << "  [ERROR] Measurement Data offset is out of bounds." << std::endl;
+    // A valid block must start *before* the total file size and must be at least 4 bytes (for its own length field).
+    if (data_block_start_index + 4 > data.size()) {
+        std::cerr << "  [ERROR] Calculated Measurement Data offset (" << data_block_start_index 
+                  << ") is out of file bounds (" << data.size() << "). Check file structure." << std::endl;
         return;
     }
 
-    // The first 4 bytes of the block are the Length of the data field.
+    // --- 3.3. Locate and Process Measurement Data Block ---
+    
     const unsigned char* block_ptr = data.data() + data_block_start_index;
     uint32_t block_length;
     
-    // Use memcpy for safe access to the Little Endian length field
     std::memcpy(&block_length, block_ptr, 4);
     block_length = le_to_h_u32(block_length); 
 
@@ -130,8 +119,13 @@ void process_file_content(const std::vector<unsigned char>& data, const std::str
     size_t current_byte_index = data_block_start_index + 4;
     size_t points_processed = 0;
 
-    // Each data point is 4 bytes: 2 bytes for Distance/Status + 2 bytes for RSSI/Intensity 
-    constexpr size_t BYTES_PER_POINT = 4; 
+    // Ensure the entire measurement block (including its length field) is within the file bounds
+    if (data_block_start_index + 4 + block_length > data.size()) {
+        std::cerr << "  [ERROR] Declared block length (" << block_length << " bytes) exceeds file end." << std::endl;
+        return;
+    }
+
+    constexpr size_t BYTES_PER_POINT = 4; // 2 bytes Distance/Status + 2 bytes RSSI/Intensity
 
     // Loop through the data points
     while (current_byte_index + BYTES_PER_POINT <= data_block_start_index + 4 + block_length) {
@@ -141,11 +135,8 @@ void process_file_content(const std::vector<unsigned char>& data, const std::str
         std::memcpy(&dist_status_le, data_ptr, 2);
         uint16_t dist_status = le_to_h_u16(dist_status_le);
         
-        // Distance is in the lower 13 bits (0x1FFF). Factor is 1 for mm.
-        uint16_t distance_mm = dist_status & 0x1FFF; 
-        
-        // Status is in the upper 3 bits (0xE000). (Typically for error/reflectivity/validity)
-        uint8_t status_flags = (dist_status >> 13) & 0x07; 
+        uint16_t distance_mm = dist_status & 0x1FFF; // Distance is in the lower 13 bits (mm)
+        uint8_t status_flags = (dist_status >> 13) & 0x07; // Status in the upper 3 bits
 
         // --- RSSI/Intensity (2 bytes, Little Endian) ---
         uint16_t rssi_le;
@@ -164,7 +155,7 @@ void process_file_content(const std::vector<unsigned char>& data, const std::str
         current_byte_index += BYTES_PER_POINT;
         points_processed++;
 
-        // Stop after 20 points to prevent excessive output for large files
+        // Stop after 20 points for brevity
         if (points_processed >= 20) {
             std::cout << "    [...] Showing first 20 data points only." << std::endl;
             break;
@@ -172,7 +163,7 @@ void process_file_content(const std::vector<unsigned char>& data, const std::str
     }
 }
 
-// --- 4. Main Program Loop (Modified from previous step) ---
+// --- 4. Main Program Loop (Unchanged) ---
 
 int main() {
     std::string folder = "./packets";
@@ -194,13 +185,13 @@ int main() {
             std::ifstream file(entry.path(), std::ios::binary);
             
             if (file) {
-                // Load entire file content into a vector of unsigned chars
                 std::vector<unsigned char> data(
                     (std::istreambuf_iterator<char>(file)), 
                     std::istreambuf_iterator<char>()
                 );
                 
                 if (!data.empty()) {
+                    std::cout << "File size: " << data.size() << " bytes." << std::endl;
                     process_file_content(data, entry.path().string());
                 } else {
                     std::cout << "  File is empty." << std::endl;
