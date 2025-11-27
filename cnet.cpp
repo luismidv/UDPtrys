@@ -35,7 +35,9 @@ int main() {
     std::cout << "Listening for UDP packets on port " << PORT << "...\n";
 
     // Buffer for incoming data
-    const int BUFFER_SIZE = 2048;
+    const int BUFFER_SIZE = 8*1024*1024;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+
     char buffer[BUFFER_SIZE];
     int counter = 0;
 
@@ -62,15 +64,17 @@ int main() {
         if (received < 0) {
             std::cerr << "Error receiving data\n";
             continue;
+        }else{
+            std::cout << "Received packet" << std::endl;
         }
 
         std::cout << "Received packet #" << packetCounter << " (" << received << " bytes)\n";
         packetCounter++;
 
         // Append packet fragment to current LiDAR measurement
-        measurementData.insert(measurementData.end(), buffer, buffer + received);
+        //measurementData.insert(measurementData.end(), buffer, buffer + received);
         fragmentCounter++;
-
+        /*
         if (fragmentCounter == 3)
         {
             static int measurementIndex = 0;
@@ -91,6 +95,7 @@ int main() {
             fragmentCounter = 0;
             measurementData.clear();
         }
+            */
     }
 
     close(sockfd);
