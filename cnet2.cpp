@@ -3,14 +3,17 @@
 #include <unistd.h>
 #include <vector>
 #include "fcntl.h"
+#include <chrono>
+
+
 
 int main() {
+    using clock = std::chrono::high_resolution_clock;
+
     const int PORT = 1217;
 
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     
-
-
     int reuse = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
@@ -40,18 +43,28 @@ int main() {
 
     std::cout << "Listening...\n";
 
-    while (true) {
-        sockaddr_in sender;
-        socklen_t senderLen = sizeof(sender);
+    auto start = clock::now();   // start measurement for first 500 packets
 
-        ssize_t received =recvfrom(sockfd, buffer, sizeof(buffer), 0,(sockaddr*)&sender, &senderLen);
-        //struct mmsghdr msgs[64]; // batch 64 packets per syscall
-        //int num = recvmmsg(sockfd, msgs, 64, 0, NULL);  
+while (true) {
+    sockaddr_in sender;
+    socklen_t senderLen = sizeof(sender);
 
-        if (received > 0) {
-            packetCounter++;
-            if (packetCounter % 500 == 0)
-                std::cout << "Packets received: " << packetCounter << "\n";
+    ssize_t received = recvfrom(sockfd, buffer, sizeof(buffer), 0,
+                                (sockaddr*)&sender, &senderLen);
+
+    if (received > 0) {
+        packetCounter++;
+
+        // Every 500 packets, calculate time
+        if (packetCounter % 500 == 0) {
+            auto now = clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+
+            std::cout << "Received " << packetCounter
+                      << " packets in " << elapsed.count() << " ms\n";
+
+            start = clock::now();  // restart timer for next 500
         }
+    }
     }
 }
