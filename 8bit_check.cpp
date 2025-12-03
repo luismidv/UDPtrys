@@ -42,10 +42,9 @@ bool verify_checksum(const unsigned char* packet_data, size_t total_size) {
         data_length_for_checksum
     );
     
-    // 3. Calculate the 2's Complement Checksum (C)
-    // C = 0x00 - S (mod 256)
-    // The cast to uint8_t handles the modulo 256 arithmetic correctly.
-    uint8_t calculated_checksum = (uint8_t)(0x00 - sum_s); 
+    // 3. Calculate the Checksum: Raw Sum (S)
+    // This implements the instruction: uint8_t calculated_checksum = sum_s;
+    uint8_t calculated_checksum = sum_s; 
 
     // 4. Extract the received checksum (it's the very last byte)
     uint8_t received_checksum = packet_data[total_size - CHECKSUM_SIZE];
@@ -56,7 +55,7 @@ bool verify_checksum(const unsigned char* packet_data, size_t total_size) {
                   << (int)calculated_checksum << std::dec << std::endl;
         return true;
     } else {
-        std::cerr << "  [FAIL] Checksum Mismatch! Calculated (2's Compl): 0x" << std::hex 
+        std::cerr << "  [FAIL] Checksum Mismatch! Calculated (Raw Sum): 0x" << std::hex 
                   << (int)calculated_checksum << ", Received: 0x" << (int)received_checksum 
                   << std::dec << ". DROPPING PACKET." << std::endl;
         return false;
