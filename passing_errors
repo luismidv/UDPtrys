@@ -1,0 +1,20 @@
+Listening for UDP packets on port 1217. Will stack 3 *verified* packets before parsing.
+  [FAIL] Checksum Mismatch! Calculated: 0xba672813, Received: 0xc10f0054. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0xb34ac9b2, Received: 0x0. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0xd2e238b3, Received: 0x1274d6a. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x82858b1c, Received: 0xc10e0052. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x3159dfbe, Received: 0x0. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0xf38d3f30, Received: 0x1274d6e. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x75dc4f66, Received: 0xc10f0052. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x356fabe7, Received: 0x0. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x8cf1136d, Received: 0x1274d70. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x5dd699e4, Received: 0xc10f0055. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x1deb3265, Received: 0x0. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x4e802a7f, Received: 0x1274d70. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x5098d617, Received: 0xc10f004d. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x600c44bb, Received: 0x0. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x9728a84c, Received: 0x1274d6e. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0xc814de08, Received: 0xc10e004f. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0xd0423f76, Received: 0x0. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x1053c868, Received: 0x1274d6c. DROPPING PACKET.
+  [FAIL] Checksum Mismatch! Calculated: 0x4133f7e8, Received: 0xc10f0058. DROPPING PACKET.
