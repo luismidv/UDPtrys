@@ -74,7 +74,7 @@ int main() {
         // Append packet fragment to current LiDAR measurement
         //measurementData.insert(measurementData.end(), buffer, buffer + received);
         fragmentCounter++;
-        /*
+        
         if (fragmentCounter == 3)
         {
             static int measurementIndex = 0;
@@ -95,9 +95,10 @@ int main() {
             fragmentCounter = 0;
             measurementData.clear();
         }
-            */
+            
     }
 
     close(sockfd);
     return 0;
+
 }
