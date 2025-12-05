@@ -1,10 +1,12 @@
-#include <iostream>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <vector>
-#include <chrono>
-#include <fcntl.h>
-#include <cstring>
+bool containsFF07(const char* buf, ssize_t len) {
+    for (int i = 0; i < len - 1; i++) {
+        if ((unsigned char)buf[i] == 0xFF &&
+            (unsigned char)buf[i + 1] == 0x07) {
+            return true;
+        }
+    }
+    return false;
+}
 
 int main() {
     using clock = std::chrono::high_resolution_clock;
@@ -32,7 +34,6 @@ int main() {
     long packetCounter = 0;
     long measureCounter = 0;
     int packetsInCurrentMeasure = 0;
-    bool lookingForStart = true;
 
     std::cout << "Listening...\n";
 
@@ -41,40 +42,32 @@ int main() {
         socklen_t senderLen = sizeof(sender);
 
         ssize_t received =
-            recvfrom(sockfd, buffer, sizeof(buffer), 0, (sockaddr*)&sender, &senderLen);
+            recvfrom(sockfd, buffer, sizeof(buffer), 0,
+                     (sockaddr*)&sender, &senderLen);
 
         if (received > 0) {
             packetCounter++;
 
-            // Check if packet contains FC 07
-            bool isFC07 = false;
-            for (int i = 0; i < received - 1; i++) {
-                if ((unsigned char)buffer[i] == 0xFC &&
-                    (unsigned char)buffer[i + 1] == 0x07) {
-                    isFC07 = true;
-                    break;
-                }
-            }
+            bool isFF07 = containsFF07(buffer, received);
 
-            if (isFC07) {
-                // Start a new measure
+            if (isFF07) {
+                // Start a new measurement
                 measureCounter++;
                 packetsInCurrentMeasure = 1;
 
-                std::cout << "New measurement started (FC07). Measure #: "
+                std::cout << ">>> Measurement START (FF07)  #"
                           << measureCounter << "\n";
             }
             else if (packetsInCurrentMeasure > 0) {
-                // Count remaining 4 packets
+                // Continue adding packets to this measurement
                 packetsInCurrentMeasure++;
             }
 
-            // When 5 packets collected → one full measurement
             if (packetsInCurrentMeasure == 5) {
-                std::cout << "Measurement #" << measureCounter
-                          << " complete (5 packets)\n";
+                std::cout << ">>> Measurement COMPLETE (#"
+                          << measureCounter << ") - 5 packets\n\n";
 
-                packetsInCurrentMeasure = 0;  // reset for next measure
+                packetsInCurrentMeasure = 0;
             }
         }
     }
