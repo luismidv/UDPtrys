@@ -6,7 +6,8 @@
 #include <chrono> // For time tracking
 #include <fcntl.h>
 #include <cerrno>
-#include <cmath> // For std::round or other math operations
+#include <cmath>
+#include <vector> // For std::round or other math operations
 
 // Original function: Searches for the FF07 sequence anywhere within the buffer.
 std::vector<uint8_t> measureBuffer;
@@ -32,6 +33,11 @@ bool startsWithFF07(const char* buf, ssize_t len) {
             return true;
     }
     return false;
+}
+
+bool endsWith0029(const std::vector<uint8_t>& v) {
+    int n = v.size();
+    return (n >= 2 && v[n-2] == 0x00 && v[n-1] == 0x29);
 }
 
 int main() {
