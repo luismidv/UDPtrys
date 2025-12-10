@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <iostream>
 #include <fstream>
 #include <chrono>
