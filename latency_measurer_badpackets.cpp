@@ -25,8 +25,8 @@ bool containsFF07(const char* buf, ssize_t len) {
     return false;
 }
 
-// Check error queue for kernel-dropped UDP packets
-void checkUDPErrQueue(int sockfd) {
+// Check error queue for kernel-dropped UDP packets and increment counter
+void checkUDPErrQueue(int sockfd, int& dropCounter) {
     char buf[2048];
     char control[1024];
 
@@ -53,6 +53,7 @@ void checkUDPErrQueue(int sockfd) {
                 e->ee_code == SO_EE_CODE_CSUM) {
 
                 std::cout << "🔥 Kernel dropped a UDP packet due to BAD CHECKSUM\n";
+                dropCounter++;
             }
         }
     }
@@ -107,8 +108,9 @@ int main() {
     clock::time_point prev;
 
     std::vector<double> intervals;
-    auto start = clock::now();
+    int droppedPackets = 0;
 
+    auto start = clock::now();
     std::cout << "Running for 8 minutes... listening for FF07 packets.\n";
 
     while (true) {
@@ -123,8 +125,6 @@ int main() {
         if (received > 0) {
             if (containsFF07(buffer, received)) {
                 auto ts = clock::now();
-
-                // Timestamp in ms for the log
                 long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                     ts.time_since_epoch()
                 ).count();
@@ -147,8 +147,8 @@ int main() {
             break;
         }
 
-        // Check for kernel-dropped UDP packets
-        checkUDPErrQueue(sockfd);
+        // Check error queue for kernel-dropped packets
+        checkUDPErrQueue(sockfd, droppedPackets);
     }
 
     close(sockfd);
@@ -163,6 +163,8 @@ int main() {
     } else {
         std::cout << "No FF07 intervals recorded.\n";
     }
+
+    std::cout << "Kernel dropped UDP packets (bad checksum): " << droppedPackets << "\n";
 
     return 0;
 }
