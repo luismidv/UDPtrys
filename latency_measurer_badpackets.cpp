@@ -14,6 +14,16 @@
 #include <fcntl.h>
 #include <linux/errqueue.h>
 
+#ifndef SO_EE_TYPE_DGRAM
+#define SO_EE_TYPE_DGRAM 1
+#endif
+
+#ifndef SO_EE_CODE_CSUM
+#define SO_EE_CODE_CSUM 1
+#endif
+
+
+
 bool containsFF07(const char* buf, ssize_t len) {
     if (len < 2) return false;
     for (ssize_t i = 0; i < len - 1; i++) {
